@@ -45,7 +45,7 @@ io.on('connection', socket => {
     // Send list of all users in the room to the new user
     socket.emit('all-users', rooms[roomId]);
     
-    // Notify other users in the room
+    // Notify other users in the room about the new user
     socket.to(roomId).emit('user-joined', { 
       signal: null, 
       callerID: socket.id,
@@ -55,19 +55,29 @@ io.on('connection', socket => {
 
   socket.on('sending-signal', payload => {
     console.log(`Signal from ${socket.id} to ${payload.userToSignal}`);
-    io.to(payload.userToSignal).emit('user-joined', { 
-      signal: payload.signal, 
-      callerID: socket.id,
-      userName: rooms[payload.roomId]?.find(user => user.id === socket.id)?.userName
-    });
+    const targetSocket = io.sockets.sockets.get(payload.userToSignal);
+    if (targetSocket) {
+      targetSocket.emit('user-joined', { 
+        signal: payload.signal, 
+        callerID: socket.id,
+        userName: rooms[payload.roomId]?.find(user => user.id === socket.id)?.userName
+      });
+    } else {
+      console.log(`Target socket ${payload.userToSignal} not found`);
+    }
   });
 
   socket.on('returning-signal', payload => {
     console.log(`Returning signal from ${socket.id} to ${payload.callerID}`);
-    io.to(payload.callerID).emit('receiving-returned-signal', { 
-      signal: payload.signal, 
-      id: socket.id 
-    });
+    const targetSocket = io.sockets.sockets.get(payload.callerID);
+    if (targetSocket) {
+      targetSocket.emit('receiving-returned-signal', { 
+        signal: payload.signal, 
+        id: socket.id 
+      });
+    } else {
+      console.log(`Target socket ${payload.callerID} not found`);
+    }
   });
 
   socket.on('chat-message', ({ roomId, ...message }) => {
